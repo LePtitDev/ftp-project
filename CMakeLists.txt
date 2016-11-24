@@ -5,6 +5,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 set(SOURCE_FILES
         src/mysocket.cpp
-        src/mysocket.h)
+        src/mysocket.h
+        src/main.cpp src/Client.cpp src/Client.h src/Config.h)
 
 add_executable(ftp_project ${SOURCE_FILES})

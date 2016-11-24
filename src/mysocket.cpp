@@ -14,7 +14,7 @@ MySocket::Address::Address() {
         return;
     }
     this->s_port = 0;
-    this->s_addr.sin_port = htons((short)this->s_port);
+    this->s_addr.sin_port = htons((unsigned short)this->s_port);
     this->s_success = true;
 }
 
@@ -30,7 +30,7 @@ MySocket::Address::Address(int portn) {
         return;
     }
     this->s_port = portn;
-    this->s_addr.sin_port = htons((short)this->s_port);
+    this->s_addr.sin_port = htons((unsigned short)this->s_port);
     this->s_success = true;
 }
 
@@ -46,7 +46,7 @@ MySocket::Address::Address(const char * addr, int portn) {
         return;
     }
     this->s_port = portn;
-    this->s_addr.sin_port = htons((short)this->s_port);
+    this->s_addr.sin_port = htons((unsigned short)this->s_port);
     this->s_success = true;
 }
 
@@ -126,6 +126,14 @@ MySocket::Socket_TCP::Socket_TCP(const char * addr, int portn) : c_addr(addr, po
     this->s_success = true;
 }
 
+MySocket::Socket_TCP::Socket_TCP(const MySocket::Socket_TCP &cpy): c_addr(cpy.c_addr), s_socket(cpy.s_socket),
+    s_success(cpy.s_success)
+{}
+
+MySocket::Socket_TCP::~Socket_TCP() {
+    close(s_socket);
+}
+
 bool MySocket::Socket_TCP::Success() {
     return this->s_success;
 }
@@ -141,15 +149,15 @@ MySocket::Socket_TCP MySocket::Socket_TCP::Accept() {
     return MySocket::Socket_TCP(descr, &addr);
 }
 
-const MySocket::Address& MySocket::Socket_TCP::GetDestination() {
+const MySocket::Address& MySocket::Socket_TCP::GetDestination() const {
     return this->c_addr;
 }
 
-int MySocket::Socket_TCP::Read(void * buf, int max) {
+ssize_t MySocket::Socket_TCP::Read(void *buf, size_t max) {
     return recv(this->s_socket, buf, max, 0);
 }
 
-int MySocket::Socket_TCP::Write(void * datas, int len) {
+ssize_t MySocket::Socket_TCP::Write(void *datas, size_t len) {
     return send(this->s_socket, datas, len, 0);
 }
 

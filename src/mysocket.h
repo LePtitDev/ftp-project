@@ -140,6 +140,18 @@ namespace MySocket {
         */
         Socket_TCP(const char *, int);
 
+
+        /**
+         * Créé une copie d'un socket
+         * @param cpy Socket à copier
+         */
+        Socket_TCP(const Socket_TCP &cpy);
+
+        /**
+         * Destructeur du socket
+         */
+        virtual ~Socket_TCP();
+
         /**
          * Détermine si la création de la socket a réussi
         */
@@ -162,7 +174,7 @@ namespace MySocket {
         /**
          * Retourne le destinataire de la socket
         */
-        const Address& GetDestination();
+        const Address& GetDestination() const;
 
         /**
          * Lit dans la socket
@@ -171,7 +183,7 @@ namespace MySocket {
          * - taille du buffer (int)
          * Retourne le nombre de caractères lus
         */
-        int Read(void *, int);
+        ssize_t Read(void *, size_t);
 
         /**
          * Ecrit dans la socket
@@ -180,7 +192,7 @@ namespace MySocket {
          * - taille (int)
          * Retourne le nombre de caractères écrits
         */
-        int Write(void *, int);
+        ssize_t Write(void *, size_t);
 
     private:
 
