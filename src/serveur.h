@@ -2,9 +2,13 @@
 #define FTP_PROJECT_SERVEUR_H
 
 #include <iostream>
+
+#include <stdint.h>
 #include <vector>
 #include <dirent.h>
 #include <pthread.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "mysocket.h"
 
@@ -32,6 +36,12 @@ namespace FTP_Server {
 
         //Détermine si le serveur doit s'arrêter
         bool stop;
+
+        //Les verrous de chaque variable protégée
+        pthread_mutex_t mtx_stop;
+        pthread_mutex_t mtx_file_names;
+        //Variable conditionnelle pour la suppression d'entrées des listes "write" et "read"
+        pthread_cond_t cond_file_names;
 
 
     public:

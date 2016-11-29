@@ -10,7 +10,7 @@ Réponse : "TRUE" ou "FALSE"
 
 Demander un fichier
 Requête : "GET <nomdufichier>"
-Réponse : 0 ou transfert du fichier
+Réponse : 0 (4 octets) ou transfert du fichier
 
 Demander d'envoyer un fichier
 Requête : "PUSH <nomdufichier>"
@@ -20,4 +20,4 @@ Réponse : "TRUE" ou "FALSE" puis attente du transfert de fichier
 Transfert d'un fichier : - le nombre d'octets du fichier sur 4 octets en little endian
 			 - le contenu du fichier octet par octet
 
-Dans le cas d'une requête incorrecte ou incomplète : répond 0
+Dans le cas d'une requête incorrecte ou incomplète : répond 0 (4 octets)

@@ -18,3 +18,4 @@ set(CLIENT_SOURCE_FILES
 
 add_executable(server ${SERVEUR_SOURCE_FILES})
 add_executable(client ${CLIENT_SOURCE_FILES})
+add_executable(srv-test src/main.cpp)
