@@ -22,25 +22,51 @@ FTP_Server::Server::Server(int portnum) : sock_listen(portnum) {
 
 bool FTP_Server::Server::Start() {
     if (!this->sock_listen.Listen(SOCKLISTEN_NUMBER)) return false;
+    bool error = false;
 
     FTP_Server::Request_Params * params;
+    pthread_t * ptr_thread;
     pthread_mutex_lock(&this->mtx_stop);
     while (!this->stop) {
         pthread_mutex_unlock(&this->mtx_stop);
         params = new FTP_Server::Request_Params;
         params->serv = this;
         params->req_sock = this->sock_listen.Accept();
+        ptr_thread = new pthread_t;
+        if (pthread_create(ptr_thread, NULL, FTP_Server::Request_Thread, params) < 0) {
+            //S'il y a une erreur, le serveur s'arrète
+            pthread_mutex_lock(&this->mtx_stop);
+            this->stop = true;
+            pthread_mutex_unlock(&this->mtx_stop);
+            error = true;
+            break;
+        }
+        else {
+            this->thread_list.push_back(ptr_thread);
+        }
         pthread_mutex_lock(&this->mtx_stop);
     }
     pthread_mutex_unlock(&this->mtx_stop);
 
-    return true;
+    for (int i = 0, sz = this->thread_list.size(); i < sz; i++) {
+        pthread_join(*this->thread_list[i], NULL);
+        delete this->thread_list[i];
+    }
+
+    return !error;
 }
 
 void FTP_Server::Server::Stop() {
     pthread_mutex_lock(&this->mtx_stop);
     this->stop = true;
     pthread_mutex_unlock(&this->mtx_stop);
+}
+
+bool FTP_Server::Server::NeedToStop() {
+    pthread_mutex_lock(&this->mtx_stop);
+    bool res = this->stop;
+    pthread_mutex_unlock(&this->mtx_stop);
+    return res;
 }
 
 void FTP_Server::Server::ReqList(MySocket::Socket_TCP * socket_tcp) {
@@ -176,9 +202,18 @@ void FTP_Server::Server::SendFile(MySocket::Socket_TCP * socket_tcp, const char 
         return;
     }
 
+    //On détermine la taille du fichier
     struct stat st;
     stat(file_name, &st);
     uint32_t size = st.st_size;
+
+    //On lit le fichier
+    uint8_t * datas = new uint8_t[size];
+    if (read(fd, datas, size) <= 0) {
+        //On indique qu'il y a eu une erreur
+        socket_tcp->Write((void *)"\0\0\0\0", 4);
+        return;
+    }
 
     //On envoie la taille sur 4 octets en little endian
     uint8_t bufsize[] = {
@@ -188,12 +223,26 @@ void FTP_Server::Server::SendFile(MySocket::Socket_TCP * socket_tcp, const char 
             (size >> 24) & 0xFF
     };
     socket_tcp->Write((void *)bufsize, 4);
+    socket_tcp->Write(datas, size);
 
-    //A FINIR
+    close(fd);
 }
 
 void FTP_Server::Server::RecvFile(MySocket::Socket_TCP * socket_tcp, const char * file_name) {
+    uint8_t bufsize[4], * datas;
+    if (socket_tcp->Read(bufsize, 4) == 0) return;
+    //On récupère la taille depuis le format little endian
+    uint32_t size = ((uint32_t)bufsize[3] << 24) + ((uint32_t)bufsize[2] << 16) + ((uint32_t)bufsize[1] << 8) + ((uint32_t)bufsize[0]);
+    datas = new uint8_t[size];
+    //On récupère les données
+    if (socket_tcp->Read(datas, size) == 0) return;
 
+    int fd = open(file_name, O_WRONLY);
+    if (fd == -1) return;
+
+    write(fd, datas, size);
+
+    close(fd);
 }
 
 bool FTP_Server::Server::__assignFileNames(const char * dir_name) {
@@ -223,47 +272,74 @@ void* FTP_Server::Request_Thread(void * params) {
 
     std::string req;
     char tmp;
-    while ((socket_tcp->Read(&tmp, 1) != 0) && (tmp != '\0')) {
-        req += tmp;
+    ssize_t recepsucc;
+
+    while (!server->NeedToStop()) {
+        while ((recepsucc = socket_tcp->Read(&tmp, 1) != 0) && (tmp != '\0')) {
+            req += tmp;
+        }
+
+        //On vérifie que la socket n'a pas été fermée
+        if (recepsucc == 0) break;
+
+        if (req[0] == 'L' && req[1] == 'I' && req[2] == 'S' && req[3] == 'T') {
+            //Traitement de la requête "LIST"
+            server->ReqList(socket_tcp);
+        } else if (req[0] == 'E' && req[1] == 'X' && req[2] == 'I' && req[3] == 'S' && req[4] == 'T') {
+            //Traitement de la requête "EXIST"
+            tmp = 6;
+            //On oublie les espaces
+            while (req[tmp] == ' ') tmp++;
+            server->ReqExist(socket_tcp, req.c_str() + tmp);
+        } else if (req[0] == 'G' && req[1] == 'E' && req[2] == 'T') {
+            //Traitement de la requête "GET"
+            tmp = 4;
+            //On oublie les espaces
+            while (req[tmp] == ' ') tmp++;
+            server->ReqGet(socket_tcp, req.c_str() + tmp);
+        } else if (req[0] == 'P' && req[1] == 'U' && req[2] == 'S' && req[3] == 'H') {
+            //Traitement de la requête "PUSH"
+            tmp = 5;
+            //On oublie les espaces
+            while (req[tmp] == ' ') tmp++;
+            server->ReqPush(socket_tcp, req.c_str() + tmp);
+        } else {
+            //Requête inconnue
+            socket_tcp->Write((void *) "\0\0\0\0", 4);
+        }
+        req.clear();
     }
 
-    if (req[0] == 'L' && req[1] == 'I' && req[2] == 'S' && req[3] == 'T') {
-        //Traitement de la requête "LIST"
-        server->ReqList(socket_tcp);
-    }
-    else if (req[0] == 'E' && req[1] == 'X' && req[2] == 'I' && req[3] == 'S' && req[4] == 'T') {
-        //Traitement de la requête "EXIST"
-        tmp = 6;
-        //On oublie les espaces
-        while (req[tmp] == ' ') tmp++;
-        server->ReqExist(socket_tcp, req.c_str() + tmp);
-    }
-    else if (req[0] == 'G' && req[1] == 'E' && req[2] == 'T') {
-        //Traitement de la requête "GET"
-        tmp = 4;
-        //On oublie les espaces
-        while (req[tmp] == ' ') tmp++;
-        server->ReqGet(socket_tcp, req.c_str() + tmp);
-    }
-    else if (req[0] == 'P' && req[1] == 'U' && req[2] == 'S' && req[3] == 'H') {
-        //Traitement de la requête "PUSH"
-        tmp = 5;
-        //On oublie les espaces
-        while (req[tmp] == ' ') tmp++;
-        server->ReqPush(socket_tcp, req.c_str() + tmp);
-    }
-    else {
-        //Requête inconnue
-        socket_tcp->Write((void *)"\0\0\0\0", 4);
-    }
     delete socket_tcp;
 
     pthread_exit(NULL);
     return NULL;
 }
 
+/**
+ * Thread qui lance le serveur
+ * Paramètre:
+ * - serveur (FTP_Server::Server *)
+*/
+void * startServ(void * p) {
+    ((FTP_Server::Server *)p)->Start();
+    pthread_exit(NULL);
+}
+
 int main(int argc, char * argv[]) {
     FTP_Server::Server serv = FTP_Server::Server();
+    pthread_t thread_srv;
+    if (pthread_create(&thread_srv, NULL, startServ, &serv) < 0) {
+        std::cout << "Erreur lors de la creation du thread serveur" << std::endl;
+        return -1;
+    }
+
+    std::string comm;
+    while (comm != "stop") {
+        std::cin >> comm;
+    }
+
+    pthread_join(thread_srv, NULL);
 
     return 0;
 }

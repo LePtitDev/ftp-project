@@ -37,6 +37,9 @@ namespace FTP_Server {
         //Détermine si le serveur doit s'arrêter
         bool stop;
 
+        //Liste des threads
+        std::vector<pthread_t *> thread_list;
+
         //Les verrous de chaque variable protégée
         pthread_mutex_t mtx_stop;
         pthread_mutex_t mtx_file_names;
@@ -71,6 +74,11 @@ namespace FTP_Server {
          * Arrète l'exécution du serveur
         */
         void Stop();
+
+        /**
+         * Détermine si le serveur doit s'arrèter (pour les threads)
+        */
+        bool NeedToStop();
 
         /**
          * Répond à la requête : Demander la liste des fichiers disponibles
