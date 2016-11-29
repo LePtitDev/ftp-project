@@ -142,11 +142,11 @@ bool MySocket::Socket_TCP::Listen(int size) {
     return (listen(this->s_socket, size) < 0);
 }
 
-MySocket::Socket_TCP MySocket::Socket_TCP::Accept() {
+MySocket::Socket_TCP * MySocket::Socket_TCP::Accept() {
     struct sockaddr_in addr;
     socklen_t len;
     int descr = accept(this->s_socket, (struct sockaddr *)&addr, &len);
-    return MySocket::Socket_TCP(descr, &addr);
+    return new MySocket::Socket_TCP(descr, &addr);
 }
 
 const MySocket::Address& MySocket::Socket_TCP::GetDestination() const {

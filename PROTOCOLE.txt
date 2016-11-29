@@ -1,3 +1,5 @@
+/!\ Chaque requète et réponse textuelle doit se terminer par un '\0'
+
 Demander la liste des fichiers disponibles
 Requête : "LIST"
 Réponse : "<nomdufichier1>;<nomdufichier2>;"
@@ -17,3 +19,5 @@ Réponse : "TRUE" ou "FALSE" puis attente du transfert de fichier
 
 Transfert d'un fichier : - le nombre d'octets du fichier sur 4 octets en little endian
 			 - le contenu du fichier octet par octet
+
+Dans le cas d'une requête incorrecte ou incomplète : répond 0

@@ -169,7 +169,7 @@ namespace MySocket {
          * Accepte une demande de connexion
          * Retourne la socket associée
         */
-        Socket_TCP Accept();
+        Socket_TCP * Accept();
 
         /**
          * Retourne le destinataire de la socket
@@ -193,6 +193,7 @@ namespace MySocket {
          * Retourne le nombre de caractères écrits
         */
         ssize_t Write(void *, size_t);
+
 
     private:
 
