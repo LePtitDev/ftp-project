@@ -38,3 +38,9 @@
 Supprimerait .gitignore
 Supprimerait .idea/
 Supprimerait cmake-build-debug/
+.idea/dictionaries/
+.idea/ftp-project.iml
+.idea/inspectionProfiles/
+.idea/misc.xml
+.idea/modules.xml
+.idea/workspace.xml

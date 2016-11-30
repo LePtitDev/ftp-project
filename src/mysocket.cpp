@@ -114,7 +114,7 @@ MySocket::Socket_TCP::Socket_TCP(const char * addr, int portn) : c_addr(addr, po
         return;
     }
 
-    int res = connect(this->s_socket, (const struct sockaddr *) this->c_addr.GetSockaddr(), sizeof(struct sockaddr_in));
+    int res = bind(this->s_socket, (const struct sockaddr *) this->c_addr.GetSockaddr(), sizeof(struct sockaddr_in));
     if (res < 0) {
         this->s_success = false;
         close(this->s_socket);
@@ -147,6 +147,13 @@ MySocket::Socket_TCP * MySocket::Socket_TCP::Accept() {
     socklen_t len;
     int descr = accept(this->s_socket, (struct sockaddr *)&addr, &len);
     return new MySocket::Socket_TCP(descr, &addr);
+}
+
+bool MySocket::Socket_TCP::Connect(MySocket::Address &addr_serv) {
+    int result = connect(s_socket, (const struct sockaddr *)addr_serv.GetSockaddr(), sizeof(struct sockaddr));
+    if(result == -1)
+        perror("Erreur de connexion");
+    return result != -1;
 }
 
 const MySocket::Address& MySocket::Socket_TCP::GetDestination() const {

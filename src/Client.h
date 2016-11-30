@@ -4,30 +4,48 @@
 #include "mysocket.h"
 #include "Config.h"
 
+// Liste des commandes
+const std::string CMD_LIST("LIST");
+const std::string CMD_EXIST("EXIST");
+const std::string CMD_GET("GET");
+const std::string CMD_PUSH("PUSH");
+
 /**
  * \class Client
- * Cette classe va représenter un client connecté
+ * Cette classe va représenter le client
  */
 class Client {
 public:
     /**
-     * Constructeur d'un clien
+     * Constructeur du clien
      * @param c_socket Socket du client
      */
-    Client(MySocket::Socket_TCP c_socket);
+    Client();
 
     /**
-     * Méthode permettant de recevoir un message (met à jour aussi le status de connexion!)
-     * @return Buffer de sortie
+     * Methode pour se connecter sur un serveur distant
+     * @param addr_serv Adresse du serveur
+     * @param port_serv Port du serveur
+     * @return Vrai si la connection s'est bien déroulée, sinon faux
      */
-    const byte * RecvMessage();
+    bool connectionServeur(std::string addr_serv, ushort port_serv);
+
+    std::string GetListe();
 
     /**
-     * Méthode d'envoie de message de forme string (chaîne de caractère)
-     * @param messageText Message texte à envoyer
-     * @return Vrai si le message à bien été envoyé, sinon faux
+     * Méthode permettant de recevoir la reponse du serveur
+     * @return Buffer d'entré
      */
-    bool SendMessage(std::string messageText);
+    const char * RecvResponse();
+
+
+    /**
+     * * Permet d'envoyer une commande à un serveur et d'attendre la réponse
+     * @param commande Commande à envoyer
+     * @param parametre Paramètre de la commande s'il y en a (vide par default)
+     * @return Vrai si la commandeà bien été envoyée
+     */
+    bool SendCommande(std::string commande, std::string parametre = "");
 
     /**
      * Méthode d'envoie de message de type données
@@ -35,7 +53,7 @@ public:
      * @param msgSize Taille du tableau
      * @return Vrai si le message à bien été envoyé, sinon faux
      */
-    bool SendMessage(byte *message, size_t msgSize);
+    bool SendMessage(const char *message, size_t msgSize);
 
 
     /**
@@ -45,22 +63,18 @@ public:
     const MySocket::Socket_TCP &GetSocket() const;
 
     /**
-     * Méthode qui retourne l'adresse du client
-     * @return MySocket::Adresse du client
-     */
-    const MySocket::Address &GetDestination() const;
-
-    /**
      * Méthode qui retourne le buffer entrant (message reçu)
      * @return Pointeur sur le buffer entrant
      */
-    const byte *GetBufferIn() const;
+    const char * GetBufferIn() const;
 
     /**
      * Méthode qui retourne le buffer sortant (message envoyé)
      * @return Pointeur sur le buffer sortant
      */
-    const byte *GetBufferOut() const;
+    const char * GetBufferOut() const;
+
+    void CleanBuffers();
 
 
     /**
@@ -69,11 +83,12 @@ public:
      */
     bool isConnected() const;
 
+    void deconnexion();
+
 private:
-    MySocket::Socket_TCP m_socket;
+    MySocket::Socket_TCP m_socket, s_socket;
     ssize_t m_sizeBufferIn;
-    byte m_bufferIn[BUFFER_SIZE];
-    byte m_bufferOut[BUFFER_SIZE];
+    char m_bufferIn[BUFFER_SIZE];
+    char m_bufferOut[BUFFER_SIZE];
     bool m_isConnected;
 };
-

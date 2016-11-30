@@ -172,6 +172,14 @@ namespace MySocket {
         Socket_TCP * Accept();
 
         /**
+         * Permet de se connecter au serveur.
+         * - Adresse du serveur
+         * Retourne vrai si réussi, sinon faux
+         */
+        bool Connect(Address &);
+
+
+        /**
          * Retourne le destinataire de la socket
         */
         const Address& GetDestination() const;
