@@ -85,8 +85,10 @@ namespace MySocket {
 
         /**
          * Met à jour les attributs de l'adresse
+		 * Paramètre:
+		 * - socket (int)
         */
-        void Refresh();
+        void Refresh(int sock_fd);
 
     private:
 

@@ -74,6 +74,11 @@ namespace FTP_Server {
          * Arrète l'exécution du serveur
         */
         void Stop();
+		
+		/**
+		 * Retourne l'adresse du serveur
+		*/
+		const MySocket::Address& GetAddress();
 
         /**
          * Détermine si le serveur doit s'arrèter (pour les threads)

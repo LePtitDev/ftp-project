@@ -62,6 +62,10 @@ void FTP_Server::Server::Stop() {
     pthread_mutex_unlock(&this->mtx_stop);
 }
 
+const MySocket::Address& FTP_Server::Server::GetAddress() {
+	return this->sock_listen.GetDestination();
+}
+
 bool FTP_Server::Server::NeedToStop() {
     pthread_mutex_lock(&this->mtx_stop);
     bool res = this->stop;
@@ -273,6 +277,16 @@ void* FTP_Server::Request_Thread(void * params) {
     std::string req;
     char tmp;
     ssize_t recepsucc;
+	std::string debugMsg;
+	
+	//--- DEBUG
+	debugMsg += "Connexion de ";
+	debugMsg += socket_tcp->GetDestination().GetIP();
+	debugMsg += ":";
+	debugMsg += std::to_string(socket_tcp->GetDestination().GetPort());
+	debugMsg += "\n";
+	std::cout << debugMsg;
+	//--- DEBUG
 
     while (!server->NeedToStop()) {
         while ((recepsucc = socket_tcp->Read(&tmp, 1) != 0) && (tmp != '\0')) {
@@ -281,6 +295,18 @@ void* FTP_Server::Request_Thread(void * params) {
 
         //On vérifie que la socket n'a pas été fermée
         if (recepsucc == 0) break;
+		
+		//--- DEBUG
+		debugMsg.clear();
+		debugMsg += "Requete de ";
+		debugMsg += socket_tcp->GetDestination().GetIP();
+		debugMsg += ":";
+		debugMsg += std::to_string(socket_tcp->GetDestination().GetPort());
+		debugMsg += " -> ";
+		debugMsg += req;
+		debugMsg += "\n";
+		std::cout << debugMsg;
+		//--- DEBUG
 
         if (req[0] == 'L' && req[1] == 'I' && req[2] == 'S' && req[3] == 'T') {
             //Traitement de la requête "LIST"
@@ -309,6 +335,15 @@ void* FTP_Server::Request_Thread(void * params) {
         }
         req.clear();
     }
+	
+	//--- DEBUG
+	debugMsg += "Deconnexion de ";
+	debugMsg += socket_tcp->GetDestination().GetIP();
+	debugMsg += ":";
+	debugMsg += std::to_string(socket_tcp->GetDestination().GetPort());
+	debugMsg += "\n";
+	std::cout << debugMsg;
+	//--- DEBUG
 
     delete socket_tcp;
 
@@ -328,6 +363,7 @@ void * startServ(void * p) {
 
 int main(int argc, char * argv[]) {
     FTP_Server::Server serv = FTP_Server::Server();
+	std::cout << "Adresse du serveur : " << serv.GetAddress().GetIP() << ":" << serv.GetAddress().GetPort() << std::endl;
     pthread_t thread_srv;
     if (pthread_create(&thread_srv, NULL, startServ, &serv) < 0) {
         std::cout << "Erreur lors de la creation du thread serveur" << std::endl;

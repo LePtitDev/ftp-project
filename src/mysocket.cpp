@@ -75,7 +75,9 @@ const struct sockaddr_in* MySocket::Address::GetSockaddr() const {
     return &(this->s_addr);
 }
 
-void MySocket::Address::Refresh() {
+void MySocket::Address::Refresh(int sock_fd) {
+	socklen_t len = sizeof(struct sockaddr_in);
+	getsockname(sock_fd, (struct sockaddr *)&(this->s_addr), &len);
     MySocket::Address::_addrtoip(this->s_ip, &(this->s_addr));
     this->s_port = MySocket::Address::_addrtoportn(&(this->s_addr));
 }
@@ -121,7 +123,7 @@ MySocket::Socket_TCP::Socket_TCP(const char * addr, int portn) : c_addr(addr, po
         return;
     }
 
-    this->c_addr.Refresh();
+    this->c_addr.Refresh(this->s_socket);
 
     this->s_success = true;
 }
@@ -139,7 +141,7 @@ bool MySocket::Socket_TCP::Success() {
 }
 
 bool MySocket::Socket_TCP::Listen(int size) {
-    return (listen(this->s_socket, size) < 0);
+    return (listen(this->s_socket, size) >= 0);
 }
 
 MySocket::Socket_TCP * MySocket::Socket_TCP::Accept() {
@@ -192,7 +194,7 @@ void MySocket::Socket_TCP::_init_serv() {
         return;
     }
 
-    this->c_addr.Refresh();
+    this->c_addr.Refresh(this->s_socket);
 
     this->s_success = true;
 }
