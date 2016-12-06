@@ -86,6 +86,7 @@ void FTP_Server::Server::ReqList(MySocket::Socket_TCP * socket_tcp) {
         rep += this->file_names[i] + ";";
     }
     pthread_mutex_unlock(&this->mtx_file_names);
+    std::cout << "Envoi de la liste : " << rep << std::endl;
     socket_tcp->Write((void *)rep.c_str(), rep.size() + 1);
 }
 
@@ -300,7 +301,7 @@ void* FTP_Server::Request_Thread(void * params) {
         }
 
         //On vérifie que la socket n'a pas été fermée
-        if (recepsucc == 0) break;
+        if (recepsucc <= 0) break;
 		
 		//--- DEBUG
 		debugMsg.clear();
@@ -343,7 +344,12 @@ void* FTP_Server::Request_Thread(void * params) {
     }
 	
 	//--- DEBUG
-	debugMsg += "Deconnexion de ";
+    if (recepsucc == 0) {
+        debugMsg += "Deconnexion de ";
+    }
+    else {
+        debugMsg += "Erreur de connexion avec ";
+    }
 	debugMsg += socket_tcp->GetDestination().GetIP();
 	debugMsg += ":";
 	debugMsg += std::to_string(socket_tcp->GetDestination().GetPort());

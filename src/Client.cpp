@@ -101,9 +101,27 @@ void Client::CleanBuffers() {
 }
 
 string Client::GetListe() {
-    string result(RecvResponse(), m_sizeBufferIn);
+
+    string result, rep;
+    char c = 2;
+    while (c != '\0') {
+        if (m_socket.Read(&c, 1) != 1)
+            return "";
+        else {
+            if (c == ';') {
+                result += "- " + rep + "\n";
+                rep.clear();
+            }
+            else {
+                rep += c;
+            }
+        }
+    }
+
+    /*string result(RecvResponse(), m_sizeBufferIn);
+
     while(m_sizeBufferIn == BUFFER_SIZE)
-        result += string(RecvResponse(), m_sizeBufferIn);
+        result += string(RecvResponse(), m_sizeBufferIn);*/
 
     return result;
 }
@@ -149,7 +167,7 @@ int main(int argc, char** argv) {
             case 1:
                 if(client.isConnected())
                     client.SendCommande(CMD_LIST);
-                cout << "Liste des fichiers disponibles: " << client.GetListe() << endl;
+                cout << "\nListe des fichiers disponibles: \n" << client.GetListe();
                 break;
 
             case 5:
