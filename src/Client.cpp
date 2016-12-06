@@ -64,7 +64,7 @@ bool Client::SendCommande(const string commande, std::string parametre) {
         message += parametre;
     }
 
-    if(!SendMessage(message.c_str(), message.size())) {
+    if(!SendMessage(message.c_str(), message.size() + 1)) {
         cerr << "Le client n'a pas pu envoyer la commande: " << commande << "(" << parametre << ")" << endl;
     }
     else

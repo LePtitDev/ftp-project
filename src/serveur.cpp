@@ -24,6 +24,12 @@ bool FTP_Server::Server::Start() {
     if (!this->sock_listen.Listen(SOCKLISTEN_NUMBER)) return false;
     bool error = false;
 
+    /**** AFFICHE LES FICHIERS ****/
+    std::cout << "Liste des fichiers :" << std::endl;
+    for (int i = 0, sz = this->file_names.size(); i < sz; i++) {
+        std::cout << "- " << this->file_names[i] << std::endl;
+    }
+
     FTP_Server::Request_Params * params;
     pthread_t * ptr_thread;
     pthread_mutex_lock(&this->mtx_stop);

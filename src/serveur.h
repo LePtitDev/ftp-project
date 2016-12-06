@@ -2,9 +2,10 @@
 #define FTP_PROJECT_SERVEUR_H
 
 #include <iostream>
+#include <string>
+#include <vector>
 
 #include <stdint.h>
-#include <vector>
 #include <dirent.h>
 #include <pthread.h>
 #include <sys/stat.h>
