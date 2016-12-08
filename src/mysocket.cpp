@@ -116,7 +116,7 @@ MySocket::Socket_TCP::Socket_TCP(const char * addr, int portn) : c_addr(addr, po
         return;
     }
 
-    int res = bind(this->s_socket, (const struct sockaddr *) this->c_addr.GetSockaddr(), sizeof(struct sockaddr_in));
+    int res = connect(this->s_socket, (const struct sockaddr *) this->c_addr.GetSockaddr(), sizeof(struct sockaddr_in));
     if (res < 0) {
         this->s_success = false;
         close(this->s_socket);
@@ -166,7 +166,7 @@ ssize_t MySocket::Socket_TCP::Read(void *buf, size_t max) {
     return recv(this->s_socket, buf, max, 0);
 }
 
-ssize_t MySocket::Socket_TCP::Write(void *datas, size_t len) {
+ssize_t MySocket::Socket_TCP::Write(const void *datas, size_t len) {
     return send(this->s_socket, datas, len, 0);
 }
 

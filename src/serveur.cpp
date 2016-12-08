@@ -29,6 +29,7 @@ bool FTP_Server::Server::Start() {
     for (int i = 0, sz = this->file_names.size(); i < sz; i++) {
         std::cout << "- " << this->file_names[i] << std::endl;
     }
+    std::cout << std::endl;
 
     FTP_Server::Request_Params * params;
     pthread_t * ptr_thread;
@@ -86,7 +87,6 @@ void FTP_Server::Server::ReqList(MySocket::Socket_TCP * socket_tcp) {
         rep += this->file_names[i] + ";";
     }
     pthread_mutex_unlock(&this->mtx_file_names);
-    std::cout << "Envoi de la liste : " << rep << std::endl;
     socket_tcp->Write((void *)rep.c_str(), rep.size() + 1);
 }
 
@@ -223,20 +223,20 @@ void FTP_Server::Server::SendFile(MySocket::Socket_TCP * socket_tcp, const char 
     if (read(fd, datas, size) <= 0) {
         //On indique qu'il y a eu une erreur
         socket_tcp->Write((void *)"\0\0\0\0", 4);
+        close(fd);
         return;
     }
+    close(fd);
 
     //On envoie la taille sur 4 octets en little endian
     uint8_t bufsize[] = {
-            size & 0xFF,
-            (size >> 8) & 0xFF,
-            (size >> 16) & 0xFF,
-            (size >> 24) & 0xFF
+            (uint8_t)(size & 0xFF),
+            (uint8_t)((size >> 8) & 0xFF),
+            (uint8_t)((size >> 16) & 0xFF),
+            (uint8_t)((size >> 24) & 0xFF)
     };
     socket_tcp->Write((void *)bufsize, 4);
     socket_tcp->Write(datas, size);
-
-    close(fd);
 }
 
 void FTP_Server::Server::RecvFile(MySocket::Socket_TCP * socket_tcp, const char * file_name) {
@@ -248,7 +248,7 @@ void FTP_Server::Server::RecvFile(MySocket::Socket_TCP * socket_tcp, const char 
     //On récupère les données
     if (socket_tcp->Read(datas, size) == 0) return;
 
-    int fd = open(file_name, O_WRONLY);
+    int fd = open(file_name, O_WRONLY | O_CREAT | O_TRUNC);
     if (fd == -1) return;
 
     write(fd, datas, size);
@@ -302,18 +302,20 @@ void* FTP_Server::Request_Thread(void * params) {
 
         //On vérifie que la socket n'a pas été fermée
         if (recepsucc <= 0) break;
-		
-		//--- DEBUG
-		debugMsg.clear();
-		debugMsg += "Requete de ";
-		debugMsg += socket_tcp->GetDestination().GetIP();
-		debugMsg += ":";
-		debugMsg += std::to_string(socket_tcp->GetDestination().GetPort());
-		debugMsg += " -> ";
-		debugMsg += req;
-		debugMsg += "\n";
-		std::cout << debugMsg;
-		//--- DEBUG
+
+        if (req != "") {
+            //--- DEBUG
+            debugMsg.clear();
+            debugMsg += "Requete de ";
+            debugMsg += socket_tcp->GetDestination().GetIP();
+            debugMsg += ":";
+            debugMsg += std::to_string(socket_tcp->GetDestination().GetPort());
+            debugMsg += " >> ";
+            debugMsg += req;
+            debugMsg += "\n";
+            std::cout << debugMsg;
+            //--- DEBUG
+        }
 
         if (req[0] == 'L' && req[1] == 'I' && req[2] == 'S' && req[3] == 'T') {
             //Traitement de la requête "LIST"
@@ -341,6 +343,19 @@ void* FTP_Server::Request_Thread(void * params) {
             socket_tcp->Write((void *) "\0\0\0\0", 4);
         }
         req.clear();
+
+        if (req != "") {
+            //--- DEBUG
+            debugMsg.clear();
+            debugMsg += "Reponse envoyee a ";
+            debugMsg += socket_tcp->GetDestination().GetIP();
+            debugMsg += ":";
+            debugMsg += std::to_string(socket_tcp->GetDestination().GetPort());
+            debugMsg += "\n";
+            std::cout << debugMsg;
+            //--- DEBUG
+        }
+
     }
 	
 	//--- DEBUG

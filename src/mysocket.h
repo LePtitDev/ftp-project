@@ -198,11 +198,11 @@ namespace MySocket {
         /**
          * Ecrit dans la socket
          * Paramètres:
-         * - données (void *)
+         * - données (const void *)
          * - taille (int)
          * Retourne le nombre de caractères écrits
         */
-        ssize_t Write(void *, size_t);
+        ssize_t Write(const void *, size_t);
 
 
     private:
