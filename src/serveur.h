@@ -131,7 +131,7 @@ namespace FTP_Server {
          * - socket (MySocket::Socket_TCP *)
          * - nom du fichier (const char *)
         */
-        void RecvFile(MySocket::Socket_TCP *, const char *);
+        bool RecvFile(MySocket::Socket_TCP *, const char *);
 
 
     private:

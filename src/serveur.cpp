@@ -153,56 +153,57 @@ void FTP_Server::Server::ReqGet(MySocket::Socket_TCP * socket_tcp, const char * 
 }
 
 void FTP_Server::Server::ReqPush(MySocket::Socket_TCP * socket_tcp, const char * file_name) {
-    bool tmp = false;
+    bool tmp = true;
     pthread_mutex_lock(&this->mtx_file_names);
-    //On vérifie que le nom du fichier se trouve dans la liste
-    for (int i = 0, sz = this->file_names.size(); i < sz; i++) {
-        if (this->file_names[i] == file_name) {
-            tmp = true;
-            break;
+    //On vérifie que le nom du fichier ne se trouve dans la liste des fichiers en écriture ou en lecture
+    while (tmp) {
+        tmp = false;
+        for (int i = 0, sz = this->write_files.size(); i < sz; i++) {
+            if (this->write_files[i] == file_name) {
+                tmp = true;
+                pthread_cond_wait(&this->cond_file_names, &this->mtx_file_names);
+                break;
+            }
         }
-    }
-    if (tmp) {
-        //On vérifie que le nom du fichier ne se trouve dans la liste des fichiers en écriture ou en lecture
-        while (tmp) {
-            tmp = false;
-            for (int i = 0, sz = this->write_files.size(); i < sz; i++) {
-                if (this->write_files[i] == file_name) {
+        if (!tmp) {
+            for (int i = 0, sz = this->read_files.size(); i < sz; i++) {
+                if (this->read_files[i] == file_name) {
                     tmp = true;
                     pthread_cond_wait(&this->cond_file_names, &this->mtx_file_names);
                     break;
                 }
             }
-            if (!tmp) {
-                for (int i = 0, sz = this->read_files.size(); i < sz; i++) {
-                    if (this->read_files[i] == file_name) {
-                        tmp = true;
-                        pthread_cond_wait(&this->cond_file_names, &this->mtx_file_names);
-                        break;
-                    }
-                }
+        }
+    }
+
+    //On ajoute le fichier en écriture
+    this->write_files.push_back(file_name);
+    pthread_mutex_unlock(&this->mtx_file_names);
+
+    bool success = this->RecvFile(socket_tcp, file_name);
+
+    //On enlève le fichier de la liste des écritures
+    pthread_mutex_lock(&this->mtx_file_names);
+    for (int i = 0, sz = this->write_files.size(); i < sz; i++) {
+        if (this->write_files[i] == file_name) {
+            this->write_files.erase(this->write_files.begin() + i);
+        }
+    }
+
+    if (success) {
+        //On vérrifie que le fichier est dans la liste des fichiers
+        tmp = false;
+        for (int i = 0, sz = this->file_names.size(); i < sz; i++) {
+            if (this->file_names[i] == file_name) {
+                tmp = true;
+                break;
             }
         }
-        //On ajoute le fichier en écriture
-        this->write_files.push_back(file_name);
-        tmp = true;
+        //S'il n'est pas présent, on l'ajoute
+        if (!tmp)
+            this->file_names.push_back(std::string(file_name));
     }
     pthread_mutex_unlock(&this->mtx_file_names);
-    if (tmp) {
-        this->RecvFile(socket_tcp, file_name);
-        //On enlève le fichier de la liste des écritures
-        pthread_mutex_lock(&this->mtx_file_names);
-        for (int i = 0, sz = this->write_files.size(); i < sz; i++) {
-            if (this->write_files[i] == file_name) {
-                this->write_files.erase(this->write_files.begin() + i);
-            }
-        }
-        pthread_mutex_unlock(&this->mtx_file_names);
-    }
-    else {
-        //On indique qu'il y a eu une erreur
-        socket_tcp->Write((void *)"\0\0\0\0", 4);
-    }
 }
 
 void FTP_Server::Server::SendFile(MySocket::Socket_TCP * socket_tcp, const char * file_name) {
@@ -239,21 +240,22 @@ void FTP_Server::Server::SendFile(MySocket::Socket_TCP * socket_tcp, const char 
     socket_tcp->Write(datas, size);
 }
 
-void FTP_Server::Server::RecvFile(MySocket::Socket_TCP * socket_tcp, const char * file_name) {
+bool FTP_Server::Server::RecvFile(MySocket::Socket_TCP * socket_tcp, const char * file_name) {
     uint8_t bufsize[4], * datas;
-    if (socket_tcp->Read(bufsize, 4) == 0) return;
+    if (socket_tcp->Read(bufsize, 4) != 4) return false;
     //On récupère la taille depuis le format little endian
     uint32_t size = ((uint32_t)bufsize[3] << 24) + ((uint32_t)bufsize[2] << 16) + ((uint32_t)bufsize[1] << 8) + ((uint32_t)bufsize[0]);
     datas = new uint8_t[size];
     //On récupère les données
-    if (socket_tcp->Read(datas, size) == 0) return;
+    if (socket_tcp->Read(datas, size) == 0) return false;
 
     int fd = open(file_name, O_WRONLY | O_CREAT | O_TRUNC);
-    if (fd == -1) return;
+    if (fd == -1) return false;
 
     write(fd, datas, size);
 
     close(fd);
+    return true;
 }
 
 bool FTP_Server::Server::__assignFileNames(const char * dir_name) {
