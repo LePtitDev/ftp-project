@@ -1,4 +1,15 @@
-#include "myclient.h"
+#include <iostream>
+#include <string>
+#include <vector>
+
+#include <stdint.h>
+#include <dirent.h>
+#include <pthread.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <time.h>
+
+#include "mysocket.h"
 
 #define COMMANDE_MAXSIZE 256
 
@@ -78,7 +89,10 @@ bool SendFile(MySocket::Socket_TCP& socket_tcp, const char * file_name) {
     int fd = open(file_name, O_RDONLY);
     if (fd == -1) {
         std::cout << "ERREUR : Lecture du fichier \"" << file_name << "\" impossible" << std::endl;
-        return true;
+        if (socket_tcp.Write("\0\0\0\0", 4) != 4)
+            return false;
+        else
+            return true;
     }
 
     //On détermine la taille du fichier
@@ -87,13 +101,8 @@ bool SendFile(MySocket::Socket_TCP& socket_tcp, const char * file_name) {
     uint32_t size = st.st_size;
 
     //On lit le fichier
-    uint8_t * datas = new uint8_t[size];
-    if (read(fd, datas, size) <= 0) {
-        std::cout << "ERREUR : Une erreur est survenue lors de la lecture du fichier \"" << file_name << "\"" << std::endl;
-        close(fd);
-        return true;
-    }
-    close(fd);
+    uint8_t * datas = new uint8_t[(size > 1024) ? 1024 : size];
+    size_t _bufsize;
 
     //On envoie la taille sur 4 octets en little endian
     uint8_t bufsize[] = {
@@ -102,9 +111,37 @@ bool SendFile(MySocket::Socket_TCP& socket_tcp, const char * file_name) {
             (uint8_t)((size >> 16) & 0xFF),
             (uint8_t)((size >> 24) & 0xFF)
     };
-
-    if ((socket_tcp.Write((void *)bufsize, 4) != 4) || (socket_tcp.Write(datas, size) != size)) {
+    if (socket_tcp.Write((void *)bufsize, 4) != 4) {
+        close(fd);
         return false;
+    }
+
+    size_t i;
+    bool success = true;
+    clock_t cpt = clock();
+    for (i = 0; i < size; i += 1024) {
+        _bufsize = (size - i > 1024) ? 1024 : (size - i);
+        if ((read(fd, datas, _bufsize) != _bufsize) || (socket_tcp.Write(datas, _bufsize) != _bufsize)) {
+            std::cout << "ERREUR : Une erreur est survenue lors de la lecture du fichier \"" << file_name << "\"" << std::endl;
+            success = false;
+            break;
+        }
+        if (clock() > cpt + CLOCKS_PER_SEC * 2) {
+            //Si cela fait 2 secondes que l'on attend, on affiche la progression
+            std::cout << std::string(std::string("Envoi du fichier \"") + file_name + "\" [" + std::to_string((i + 1024) * 100 / size) + "%]\n");
+            cpt = clock();
+        }
+    }
+
+    close(fd);
+
+    if (!success) {
+        //On remplit la socket
+        for (; i < size; i++) {
+            if (socket_tcp.Write("\0", 1) != 1) {
+                return false;
+            }
+        }
     }
 
     std::cout << "Fichier \"" << file_name << "\" envoye avec succes" << std::endl;
@@ -123,19 +160,39 @@ bool RecvFile(MySocket::Socket_TCP& socket_tcp, const char * file_name) {
         return true;
     }
 
-    datas = new uint8_t[size];
-    //On récupère les données
-    if (socket_tcp.Read(datas, size) == 0) {
-        return false;
-    }
+    datas = new uint8_t[(size > 1024) ? 1024 : size];
+    size_t _bufsize;
 
     int fd = open(file_name, O_WRONLY | O_CREAT | O_TRUNC);
     if (fd == -1) {
         std::cout << "ERREUR : Ecriture du fichier \"" << file_name << "\" impossible" << std::endl;
+        //On vide la socket
+        for (size_t i = 0; i < size; i += 1024) {
+            _bufsize = (size - i > 1024) ? 1024 : (size - i);
+            if (socket_tcp.Read(datas, _bufsize) != _bufsize) {
+                return false;
+            }
+        }
         return true;
     }
 
-    write(fd, datas, size);
+    clock_t cpt = clock();
+    for (size_t i = 0; i < size; i += 1024) {
+        _bufsize = (size - i > 1024) ? 1024 : (size - i);
+        //On récupère les données
+        if (socket_tcp.Read(datas, _bufsize) != _bufsize) {
+            close(fd);
+            return false;
+        }
+        //On les écrit
+        write(fd, datas, _bufsize);
+
+        if (clock() > cpt + CLOCKS_PER_SEC * 2) {
+            //Si cela fait 2 secondes que l'on attend, on affiche la progression
+            std::cout << std::string(std::string("Telechargement du fichier \"") + file_name + "\" [" + std::to_string((i + 1024) * 100 / size) + "%]\n");
+            cpt = clock();
+        }
+    }
 
     close(fd);
 
@@ -175,6 +232,14 @@ bool Request_Push(MySocket::Socket_TCP& socket, char * file_name) {
         file_name++;
     }
 
+    //On vérifie que le fichier existe
+    int fd = open(name.c_str(), O_RDONLY);
+    if (fd == -1) {
+        std::cout << "ERREUR : Le fichier \"" << name << "\" n'existe pas ou ne peut pas etre ouvert" << std::endl;
+        return true;
+    }
+    close(fd);
+
     std::string req = "PUSH " + name, rep;
     if (socket.Write(req.c_str(), req.length() + 1) != req.length() + 1) {
         return false;
@@ -191,17 +256,22 @@ bool Request_Push(MySocket::Socket_TCP& socket, char * file_name) {
 }
 
 int main(int argc, char * argv[]) {
-    std::cout << "Tentative de connexion au serveur " << argv[1] << ":" << atoi(argv[2]) << std::endl;
     if (argc != 3) {
         std::cout << "ERREUR : Usage :\n> " << argv[0] << " <adresse du serveur> <numero de port du serveur>" << std::endl;
         return -1;
     }
 
+    std::cout << "Tentative de connexion au serveur " << argv[1] << ":" << atoi(argv[2]) << std::endl;
     MySocket::Socket_TCP socket = MySocket::Socket_TCP(argv[1], atoi(argv[2]));
-    if (socket.Success()) {
-        std::cout << "La connexion avec le serveur a ete etablie" << std::endl;
+    char tmp;
+    bool success;
+    if (success = socket.Success()) {
+        if (socket.Read(&tmp, 1) != 1)
+            success = false;
+        else
+            std::cout << "La connexion avec le serveur a ete etablie" << std::endl;
     }
-    else {
+    if (!success) {
         std::cout << "ECHEC : La connexion avec le serveur a echouee" << std::endl;
         return -1;
     }
