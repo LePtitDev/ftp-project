@@ -1,2 +1,0 @@
-# AJOUTER UNE METHODE "Close()" A LA CLASS SOCKET_TCP POUR FERMER LA CONNEXION PROPREMENT [Fait dans le dernier commit!]
-Commencer à faire la partie serveur en mode NON Threadé
